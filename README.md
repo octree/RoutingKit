@@ -42,6 +42,16 @@ try router.request(url: URL(string: "demo://host/docs/uuid")!)
 
 
 
+### Wildcard
+
+```swift
+struct DocBody: DemoURLDecodableBody {
+  var uri: String { "/*/:id" }
+}
+```
+
+
+
 
 
 ## Installation
