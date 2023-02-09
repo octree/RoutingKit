@@ -35,8 +35,6 @@ public protocol Body {
 }
 
 public protocol URLDecodableBody: Body {
-    static var uri: String { get }
-    static var scheme: String { get }
-    static var host: Host { get }
+    static var url: URL { get }
     static func decode(from url: URL, urlParameters: Parameters) throws -> Self
 }

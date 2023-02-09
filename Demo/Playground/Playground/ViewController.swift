@@ -24,25 +24,17 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
 
-import UIKit
 import RoutingKit
-
-public protocol DemoURLDecodableBody: URLDecodableBody {}
-
-public extension DemoURLDecodableBody {
-    static var scheme: String { "demo" }
-    static var host: Host { .any }
-}
+import UIKit
 
 struct MessageBody: Body {
     typealias Response = String
     var message: String
 }
 
-struct DocBody: DemoURLDecodableBody {
+struct DocBody: URLDecodableBody {
     typealias Response = String
-
-    static var uri: String { "/docs/:id" }
+    static var url: URL { URL(string: "abc://def/docs/:id")! }
 
     static func decode(from url: URL, urlParameters: Parameters) throws -> DocBody {
         DocBody(id: urlParameters["id", as: String.self]!)
@@ -59,13 +51,9 @@ class ViewController: UIViewController {
         router.register(MessageBody.self) { $0.message }
         router.register(DocBody.self) { $0.id }
 
-        do {
-            print(try router.request(MessageBody(message: "message")))
-            print(try router.request(DocBody(id: "hello")))
-            print(try router.request(url: URL(string: "demo://host/docs/world")!))
-            print(try router.request(url: URL(string: "demo://host/docs")!))
-        } catch {
-            print(error)
-        }
+        print(router.request(MessageBody(message: "message")))
+        print(router.request(DocBody(id: "hello")))
+        print(router.request(url: URL(string: "abc://def/docs/world")!))
+        print(router.request(url: URL(string: "abc://def/docs")!))
     }
 }

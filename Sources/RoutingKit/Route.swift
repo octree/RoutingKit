@@ -27,12 +27,12 @@
 import Foundation
 
 public protocol AnyRoute {
-    var uri: String { get }
+    var url: URL { get }
     var handler: URLRequestHandler { get }
 }
 
 public struct Route<Body: URLDecodableBody>: AnyRoute {
-    public var uri: String
+    public var url: URL
     public var handler: URLRequestHandler {
         return { url, params in
             try _handler(Body.decode(from: url, urlParameters: params))
@@ -40,8 +40,8 @@ public struct Route<Body: URLDecodableBody>: AnyRoute {
     }
 
     private var _handler: RequestHandler<Body>
-    public init(uri: String, handler: @escaping RequestHandler<Body>) {
-        self.uri = uri
+    public init(url: URL, handler: @escaping RequestHandler<Body>) {
+        self.url = url
         _handler = handler
     }
 }

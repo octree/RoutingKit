@@ -29,8 +29,8 @@ import Foundation
 public protocol Routing {
     func register<T: Body>(_ type: T.Type, handler: @escaping (T) throws -> T.Response)
     func register<T: URLDecodableBody>(_ type: T.Type, handler: @escaping (T) throws -> T.Response)
-    func request<T: Body>(_ body: T) throws -> T.Response
-    func request(url: URL) throws -> Any
+    func request<T: Body>(_ body: T) -> T.Response?
+    func request(url: URL) -> Any?
 }
 
 public enum RoutingError: Error {
@@ -43,35 +43,10 @@ private func erase<T: Body>(_ handler: @escaping RequestHandler<T>) -> AnyReques
 
 public final class Router: Routing {
     public static let `default` = Router()
-    struct Service {
-        public var scheme: String
-        public var host: Host
-        var root: RouteNode = .init()
-        public init(scheme: String, host: Host) {
-            self.scheme = scheme
-            self.host = host
-        }
-
-        struct ID: Hashable {
-            var scheme: String
-            var host: Host
-        }
-
-        var id: ID { .init(scheme: scheme, host: host) }
-    }
-
-    private var services = [Service.ID: Service]()
+    private var root: RouteNode = .init()
     private var resolversByType: [ObjectIdentifier: AnyRequestHandler] = [:]
 
     public init() {}
-
-    func findService(for url: URL) -> Service? {
-        services.values.first { $0.canHandle(url: url) }
-    }
-
-    func findHandler(for url: URL) -> (URLRequestHandler, Parameters)? {
-        findService(for: url)?.findHandlers(url: url)
-    }
 
     public func register<T>(_ type: T.Type, handler: @escaping (T) throws -> T.Response) where T: Body {
         resolversByType[ObjectIdentifier(type)] = erase(handler)
@@ -79,58 +54,35 @@ public final class Router: Routing {
 
     public func register<T>(_ type: T.Type, handler: @escaping (T) throws -> T.Response) where T: URLDecodableBody {
         resolversByType[ObjectIdentifier(type)] = erase(handler)
-        service(for: type.scheme, host: type.host)
-            .add(route: Route(uri: type.uri, handler: handler))
+        root.add(route: Route(url: type.url, handler: handler))
     }
 
-    public func request<T>(_ body: T) throws -> T.Response where T: Body {
+    public func request<T>(_ body: T) -> T.Response? where T: Body {
         guard let resolver = resolversByType[ObjectIdentifier(T.self)] else {
-            throw RoutingError.notFound
+            return nil
         }
-        return try resolver(body) as! T.Response
+        return try? resolver(body) as? T.Response
     }
 
-    public func request(url: URL) throws -> Any {
-        guard let (handler, params) = findHandler(for: url) else {
-            throw RoutingError.notFound
+    public func request(url: URL) -> Any? {
+        guard let (handler, params) = findHandler(url: url) else {
+            return nil
         }
-        return try handler(url, params)
+        return try? handler(url, params)
     }
 
     public func canHandle(url: URL) -> Bool {
-        findHandler(for: url) != nil
+        findHandler(url: url) != nil
     }
 
-    func service(for scheme: String, host: Host) -> Service {
-        let id = Service.ID(scheme: scheme, host: host)
-        if let service = services[id] { return service }
-        let service = Service(scheme: scheme, host: host)
-        services[id] = service
-        return service
-    }
-}
-
-extension Router.Service {
-    func canHandle(url: URL) -> Bool {
-        guard let sourceScheme = url.scheme,
-              let sourceHost = url.host
-        else {
-            return false
-        }
-        return sourceScheme.caseInsensitiveCompare(scheme) == .orderedSame
-            && host.isMatch(host: sourceHost)
-    }
-
-    func findHandlers(url: URL) -> (URLRequestHandler, Parameters)? {
-        let generator = url.path.split(separator: "/").map { String($0) }.makeIterator()
+    func findHandler(url: URL) -> (URLRequestHandler, Parameters)? {
+        var components = [url.scheme ?? "", url.host ?? ""]
+        components.append(contentsOf: url.path.split(separator: "/").map { String($0) })
+        let generator = components.makeIterator()
         var parameters = Parameters()
         if let handle = root.findHandler(current: "", generator: generator, parameters: &parameters) {
             return (handle, parameters)
         }
         return nil
-    }
-
-    func add(route: AnyRoute) {
-        root.add(route: route)
     }
 }

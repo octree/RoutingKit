@@ -124,14 +124,19 @@ final class LiteralRoute: RouteNode {
 final class WildCardRoute: RouteNode {}
 
 extension RouteNode {
-    func addRoute(uri: String, handler: @escaping URLRequestHandler) {
-        let generator = uri.pathComponents.makeIterator()
+    func addRoute(url: URL, handler: @escaping URLRequestHandler) {
+        var components: [PathComponent] = [
+            PathComponent(stringLiteral: url.scheme ?? "*"),
+            PathComponent(stringLiteral: url.host ?? "*")
+        ]
+        components.append(contentsOf: url.path.pathComponents)
+        let generator = components.makeIterator()
         let node = getNode(generator: generator)
         node.terminal = true
         node.handler = handler
     }
 
     func add(route: AnyRoute) {
-        addRoute(uri: route.uri, handler: route.handler)
+        addRoute(url: route.url, handler: route.handler)
     }
 }
